@@ -12,64 +12,379 @@ from datetime import datetime
 from summarizer.downloaders import is_youtube_url
 from summarizer.prompts import get_available_prompts
 
-CUSTOM_CSS = """
+def get_custom_css(theme="system"):
+    if theme == "dark":
+        theme_vars = ":root { --bg: #0a0a0a; --text: #e8e8e8; --secondary: #141414; }"
+    elif theme == "light":
+        theme_vars = ":root { --bg: #ffffff; --text: #1a1a1a; --secondary: #f0f0f0; }"
+    else:
+        theme_vars = (
+            ":root { --bg: #ffffff; --text: #1a1a1a; --secondary: #f0f0f0; }\n"
+            "@media (prefers-color-scheme: dark) {"
+            ":root { --bg: #0a0a0a; --text: #e8e8e8; --secondary: #141414; }"
+            "}"
+        )
+
+    return f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap');
 
-.stApp {
-    font-family: 'Space Grotesk', sans-serif !important;
-}
+{theme_vars}
 
-.main-header {
+.stApp {{
+    font-family: 'Space Grotesk', sans-serif !important;
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+}}
+
+.stApp [data-testid="stAppViewContainer"] {{
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+}}
+
+.stApp [data-testid="stSidebar"] {{
+    background-color: var(--secondary) !important;
+    color: var(--text) !important;
+}}
+
+header[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"] {{
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+}}
+
+[data-testid="stHeader"] svg,
+[data-testid="stToolbar"] svg {{
+    fill: var(--text) !important;
+    color: var(--text) !important;
+}}
+
+.main-header {{
     font-family: 'JetBrains Mono', monospace !important;
     font-size: 2.5rem !important;
     font-weight: 700 !important;
     letter-spacing: -0.05em !important;
     text-transform: uppercase !important;
-    border-bottom: 2px solid #fff !important;
+    border-bottom: 2px solid var(--text) !important;
+    color: var(--text) !important;
     padding-bottom: 0.5rem !important;
     margin-bottom: 2rem !important;
-}
+}}
 
 .stTextInput > div > div > input,
-.stTextArea > div > div > textarea {
+.stNumberInput > div {{
+    border-radius: 0 !important;
+    background-color: var(--secondary) !important;
+    border: 1px solid var(--text) !important;
+    color: var(--text) !important;
+    caret-color: var(--text) !important;
+}}
+
+.stTextInput [data-baseweb="input"] input {{
+    background-color: transparent !important;
+    color: var(--text) !important;
+    caret-color: var(--text) !important;
+}}
+
+.stTextInput [data-baseweb="input"],
+.stTextInput [data-baseweb="input"] > div {{
+    background-color: var(--secondary) !important;
+    border: 1px solid var(--text) !important;
+    border-radius: 0 !important;
+}}
+
+.stNumberInput > div > div > input {{
     border-radius: 0 !important;
     font-family: 'JetBrains Mono', monospace !important;
-}
+    background-color: transparent !important;
+    color: var(--text) !important;
+    border: none !important;
+}}
 
-.stButton > button {
+/* Number input (BaseWeb) background fix */
+.stNumberInput [data-baseweb="input"] {{
+    background-color: var(--secondary) !important;
+    border: 1px solid var(--text) !important;
+    border-radius: 0 !important;
+}}
+
+.stNumberInput [data-baseweb="input"] > div {{
+    background-color: transparent !important;
+}}
+
+.stNumberInput [data-baseweb="input"] input {{
+    background-color: transparent !important;
+    color: var(--text) !important;
+}}
+
+.stButton > button {{
     border-radius: 0 !important;
     font-family: 'JetBrains Mono', monospace !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
-}
+    background-color: var(--secondary) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--text) !important;
+}}
 
-.stSelectbox > div > div {
+.stSelectbox > div > div {{
     border-radius: 0 !important;
-}
+    background-color: var(--secondary) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--text) !important;
+}}
 
-.stTabs [data-baseweb="tab"] {
+.stSelectbox [data-baseweb="select"] > div {{
+    background-color: var(--secondary) !important;
+    color: var(--text) !important;
+}}
+
+.stSelectbox input {{
+    cursor: pointer !important;
+    caret-color: transparent !important;
+    user-select: none !important;
+    color: var(--text) !important;
+}}
+
+.stSelectbox [role="button"], 
+.stSelectbox [data-baseweb="select"] [data-baseweb="popover"] {{
+    background-color: var(--secondary) !important;
+    color: var(--text) !important;
+}}
+
+/* Dropdown menu items */
+.stSelectbox ul[data-baseweb="menu"],
+.stSelectbox li[data-baseweb="menu"] {{
+    background-color: var(--secondary) !important;
+    color: var(--text) !important;
+}}
+
+/* Selectbox menu popover (portal) */
+[data-baseweb="popover"] ul[data-baseweb="menu"],
+[data-baseweb="popover"] li[data-baseweb="menu"],
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="popover"] [role="option"] {{
+    background-color: var(--secondary) !important;
+    color: var(--text) !important;
+}}
+
+.stSelectbox [data-baseweb="select"] span {{
+    color: var(--text) !important;
+}}
+
+/* Button hover states */
+.stButton > button:hover {{
+    background-color: var(--text) !important;
+    color: var(--bg) !important;
+}}
+
+/* Selectbox hover */
+.stSelectbox > div > div:hover {{
+    border: 1px solid var(--text) !important;
+}}
+
+.stRadio [data-baseweb="radio"] > div > div {{
+    border: 1px solid var(--text) !important;
+    background-color: transparent !important;
+}}
+
+.stCheckbox [data-baseweb="checkbox"] > div > div {{
+    border: 1px solid var(--text) !important;
+    background-color: transparent !important;
+}}
+
+.stExpander {{
+    background-color: var(--secondary) !important;
+    border: 1px solid var(--text) !important;
+}}
+
+.stTabs [data-baseweb="tab"] {{
     border-radius: 0 !important;
     font-family: 'JetBrains Mono', monospace !important;
     text-transform: uppercase !important;
-}
+    color: var(--text) !important;
+    border-bottom: 2px solid transparent !important;
+}}
 
-.streamlit-expanderHeader {
+.stTabs [data-baseweb="tab"][aria-selected="true"] {{
+    border-bottom: 2px solid var(--text) !important;
+    color: var(--text) !important;
+}}
+
+.streamlit-expanderHeader {{
     font-family: 'JetBrains Mono', monospace !important;
     text-transform: uppercase !important;
     border-radius: 0 !important;
-}
+    color: var(--text) !important;
+    background-color: transparent !important;
+}}
 
-.stCaption {
+.streamlit-expanderHeader:hover {{
+    background-color: transparent !important;
+    color: var(--text) !important;
+}}
+
+.stSidebar [data-baseweb="radio"] {{
+    background-color: transparent !important;
+    box-shadow: none !important;
+}}
+
+.stSidebar [data-baseweb="radio"] > div {{
+    background-color: transparent !important;
+    box-shadow: none !important;
+}}
+
+.stSidebar [role="radiogroup"],
+.stSidebar [data-baseweb="radiogroup"] {{
+    background-color: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}}
+
+.stSidebar .stRadio [data-baseweb="button-group"],
+.stSidebar .stRadio [data-baseweb="button-group"] > div {{
+    background-color: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    outline: 0 !important;
+}}
+
+.stSidebar .stRadio [data-baseweb="radio"] > div > div {{
+    border: none !important;
+}}
+
+/* Theme toggle - clean segmented control */
+.stSidebar [key="theme_selector"] [data-baseweb="button-group"] {{
+    display: flex !important;
+    gap: 0 !important;
+    background: transparent !important;
+    border: 1px solid var(--text) !important;
+    padding: 2px !important;
+}}
+
+.stSidebar [key="theme_selector"] [data-baseweb="button-group"] > div {{
+    flex: 1 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--text) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    padding: 0.4rem 0.2rem !important;
+}}
+
+.stSidebar [key="theme_selector"] [data-baseweb="button-group"] > div:hover {{
+    background: rgba(128, 128, 128, 0.2) !important;
+}}
+
+.stSidebar [key="theme_selector"] [data-baseweb="button-group"] > div[aria-checked="true"] {{
+    background: var(--text) !important;
+    color: var(--bg) !important;
+}}
+
+.stSidebar [key="theme_selector"] [role="radio"] {{
+    display: none !important;
+}}
+
+.stSidebar [data-testid="stExpander"] {{
+    border-radius: 0 !important;
+    border: 1px solid var(--text) !important;
+}}
+
+.stSidebar [data-testid="stExpander"] summary,
+.stSidebar [data-testid="stExpander"] details {{
+    background-color: var(--secondary) !important;
+    color: var(--text) !important;
+    border-radius: 0 !important;
+}}
+
+.stSidebar [data-testid="stExpander"] summary {{
+    display: flex !important;
+    align-items: center !important;
+    padding: 0.4rem 0.6rem !important;
+    text-align: left !important;
+    color: var(--text) !important;
+}}
+
+.stSidebar [data-testid="stExpander"] summary p,
+.stSidebar [data-testid="stExpander"] summary span {{
+    color: var(--text) !important;
+}}
+
+.stSidebar [data-testid="stExpander"] summary * {{
+    color: var(--text) !important;
+}}
+
+.stSidebar .stTextArea > div > div {{
+    background-color: var(--secondary) !important;
+}}
+
+.stSidebar .stTextArea > div > div > textarea {{
+    background-color: transparent !important;
+    color: var(--text) !important;
+}}
+
+.stSidebar .stCheckbox [data-baseweb="checkbox"] > div,
+.stSidebar .stCheckbox [data-baseweb="checkbox"] svg {{
+    background-color: transparent !important;
+    border-color: var(--text) !important;
+    color: var(--text) !important;
+    fill: var(--text) !important;
+}}
+
+.stCaption {{
     font-family: 'JetBrains Mono', monospace !important;
     text-transform: uppercase !important;
-}
+    color: var(--text) !important;
+}}
+
+.stSidebar .stCaption {{
+    color: var(--text) !important;
+}}
+
+.stMarkdown {{
+    color: var(--text) !important;
+}}
+
+label, .stRadio label, .stCheckbox label, .stSelectbox label {{
+    color: var(--text) !important;
+}}
+
+.stFileUploader label,
+.stFileUploader [data-testid="stFileUploaderDropzone"] span,
+.stFileUploader [data-testid="stFileUploaderDropzone"] small,
+.stFileUploader [data-testid="stFileUploaderDropzone"] p {{
+    color: var(--text) !important;
+}}
+
+.stFileUploader [data-testid="stFileUploaderDropzone"] {{
+    background-color: var(--secondary) !important;
+    border: 1px solid var(--text) !important;
+}}
+
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder {{
+    color: var(--text) !important;
+    opacity: 0.7 !important;
+}}
+
+.stSidebar .stRadio [data-baseweb="radio"] span,
+.stSidebar .stRadio [data-baseweb="radio"] label,
+.stSidebar .stRadio [data-baseweb="radio"] p {{
+    color: var(--text) !important;
+}}
 
 .element-container .stMarkdown h1,
 .element-container .stMarkdown h2,
-.element-container .stMarkdown h3 {
+.element-container .stMarkdown h3 {{
     font-family: 'JetBrains Mono', monospace !important;
-}
+    color: var(--text) !important;
+}}
 </style>
 """
 
@@ -185,6 +500,13 @@ def init_session_state():
         st.session_state.current_summary = None
     if "show_history_item" not in st.session_state:
         st.session_state.show_history_item = None
+    if "theme" not in st.session_state:
+        st.session_state.theme = "system"
+    
+    # Check if we need to restart for theme change
+    if "theme_restart" in st.session_state:
+        st.session_state.theme = st.session_state.theme_restart
+        del st.session_state.theme_restart
 
 
 def add_to_history(source: str, provider: str, prompt_type: str, summary: str):
@@ -237,9 +559,9 @@ def copy_to_clipboard(text: str):
 
 
 def main():
-    st.set_page_config(page_title="SUMMARIZE", page_icon="S", layout="wide")
+    st.set_page_config(page_title="SUMMARIZE", page_icon="S", layout="centered")
     init_session_state()
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+    st.markdown(get_custom_css(st.session_state.theme), unsafe_allow_html=True)
 
     # Load config from YAML -- this is re-read every run so EDIT CONFIG changes apply immediately
     providers, default_provider, defaults = load_config()
@@ -253,7 +575,35 @@ def main():
     default_chunk_size = defaults.get("chunk_size", 10000)
 
     with st.sidebar:
-        st.markdown("### CONFIG")
+        # -- Theme Toggle --
+        current_theme = st.session_state.theme
+        theme_options = ["System", "Light", "Dark"]
+        if current_theme == "dark":
+            theme_index = 2
+        elif current_theme == "light":
+            theme_index = 1
+        else:
+            theme_index = 0
+
+        selected_theme = st.radio(
+            "THEME",
+            options=theme_options,
+            index=theme_index,
+            horizontal=True,
+            key="theme_selector"
+        )
+
+        # Update theme based on selection
+        if selected_theme == "Dark":
+            new_theme = "dark"
+        elif selected_theme == "Light":
+            new_theme = "light"
+        else:
+            new_theme = "system"
+        if new_theme != current_theme:
+            st.session_state.theme_restart = new_theme
+            st.rerun()
+        
         st.divider()
 
         # -- Provider --
@@ -272,6 +622,15 @@ def main():
         # Use provider-level chunk-size if defined, else global default
         effective_chunk_size = provider_config.get("chunk-size", default_chunk_size)
 
+        try:
+            chunk_size = int(effective_chunk_size)
+        except (TypeError, ValueError):
+            chunk_size = int(default_chunk_size)
+        if chunk_size < 500:
+            chunk_size = 500
+        elif chunk_size > 1000000:
+            chunk_size = 1000000
+
         st.divider()
 
         # -- Style --
@@ -286,16 +645,6 @@ def main():
             options=[code for code, name in LANGUAGES],
             format_func=lambda x: dict(LANGUAGES)[x],
             index=0,
-        )
-
-        # -- Chunk size: number input, no arbitrary cap --
-        chunk_size = st.number_input(
-            "CHUNK SIZE",
-            min_value=500,
-            max_value=1000000,
-            value=int(effective_chunk_size),
-            step=1000,
-            help="Characters per chunk. Increase for models with large context windows.",
         )
 
         st.divider()
