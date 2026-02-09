@@ -27,6 +27,7 @@ from .api import (
     chunk_text,
     extract_and_clean_chunks,
     process_chunk,
+    process_chunks_local,
     process_chunks,
     format_summary_with_timestamps,
     parse_response_content,
@@ -120,7 +121,8 @@ def main(config: dict) -> str:
 
         try:
             summaries = loop.run_until_complete(
-                process_chunks(chunks, template, config)
+                # process_chunks(chunks, template, config)
+                process_chunks_local(chunks, template, config)  # ! Replaced to local GPU only, now remote won't work.
             )
             if not summaries:
                 raise APIError("No valid summaries generated")

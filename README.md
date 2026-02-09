@@ -1,272 +1,127 @@
-# Video Transcript Summarizer
+# Purpose
+AI text summarizer that works for remote/local video and text. This is a forked repo, as stated in its [origin](https://github.com/martinopiaggi/summarize.git):
+> "Works with any OpenAI-compatible LLM provider (even locally hosted)."
 
-Transcribe and summarize videos from YouTube, Instagram, TikTok, Twitter, Reddit, Facebook, Google Drive, Dropbox, and local files.
+Although it's important to mention that I have made specific modifications to the code so that **now it only works with local LLMs, specifically ollama based ones**. If you are using API keys, you shall use the original repo instead.
 
-Works with any OpenAI-compatible LLM provider (even locally hosted).
+# Tutorial
+It's not easy to get the original repo work with local LLM if you lack the required knowledge that **isn't mentioned in the original repo**. Maybe this has something to do with Windows who knows.
 
-## Interfaces
+⚠️ Everything discussed here is about hosting a local LLM (using your own GPU). If you have multiple GPUs, you might have to make additional configurations to get things work.
 
-| Interface | Command |
-|-----------|---------|
-| CLI | `python -m summarizer --source <source>` |
-| Streamlit GUI | `python -m streamlit run app.py` |
-| Docker | `docker compose up -d` → `http://localhost:8501` |
-| SKILL for AI agents  | [`.agent/skills/summarize/SKILL.md`](./.agent/skills/summarize/SKILL.md) to permit agents to use CLI interface |
+First of all, here is what I have:
+- OS: Windows 11
+- GPU: Nvidia GeForce GTX 3060
 
+Secondly, if you haven't, you will want to download a driver for your GPU. Usually simply typing your GPU's type to the browser will lead you to a download site. Be certain you are downloading from a credible source.
 
-## How It Works
+Thirdly, after you install the driver, you will want to download WSL2 if you haven't already. Simply search 'WSL' in Microsoft Store page will lead you to the install page. 
+
+Once you have WSL installed, reboot your PC. Then open a terminal and type
 
 ```
-               +--------------------+
-               |  Video URL/Path    |
-               +---------+----------+
-                         |
-                         v
-               +---------+----------+
-               |    Source Type?     |
-               +---------+----------+
-                         |
-       +-----------------+-------------+
-       |                 |             |
-       |             X.com/IG     Local File
-    YouTube           TikTok     Google Drive
-       |                etc.       Dropbox
-       |                 |             |
-       v            +----+-----+       |
-+------+----------+ | Cobalt   |       |
-| Captions Exist? | +----+-----+       |
-+----+----+-------+      |             |
-    Yes   No             |             |
-     |    +--------------+--------+----+
-     |                            |
-     |                            v
-     |                   +--------+--------+
-     |                   |     Whisper     |
-     |                   |    endpoint?    |
-     |                   +--------+--------+
-     |                            |
-     |                +-----------+-----------+
-     |                |                       |
-     |           Cloud Whisper          Local Whisper
-     |                |                       |
-     |                +----------+------------+
-     |                           |
-     +---------------------------+
-                                 |
-                            Transcript
-                                 |
-                                 v
-                    +------------+----------+
- summarizer.yaml -> |    Prompt + LLM       |
- prompts.json    -> |    Merge              |
- .env            -> +------------+----------+
-                                 |
-                                 v
-                          +------+-------+
-                          |    Output    |
-                          +--------------+
+wsl
 ```
 
-- [`summarizer.yaml`](./summarizer.yaml): Provider settings (base_url, model, chunk-size) and defaults
-- [`.env`](./.env): API keys matched by URL keyword
-- [`prompts.json`](./summarizer/prompts.json): Summary style templates
+If it's your first time using wsl, you will have to follow its instructions and create an account. Once you got that done, go to a desired folder and type
+```
+git clone https://github.com/Kolyn090/ollama-summarize.git
+```
+Set up git if you don't have.
 
-**Notes:**
-- Cloud Whisper uses **Groq Cloud API** (requires free Groq API key)
-- Docker image does **not** include Local Whisper (designed for VPS deployment without GPU)
+After that, do
+```
+cd ollama-summarize
+```
 
-## Installation and usage
+Fourthly, let's set up python virtual environment to make life easier.
 
-**Step 0 - CLI installation:**
+type (Only do this once!)
+```
+python3 -m venv venv
+```
 
-```bash
-git clone https://github.com/martinopiaggi/summarize.git
-cd summarize
+And now
+```
+source venv/bin/activate
+```
+
+Now we install the dependencies, type
+```
 pip install -e .
 ```
 
-**Step 1 - Run the CLI:**
+The next thing is to install a model from ollama. You can either do this through ollama's UI or cli. I'm using qwen2.5:7b and to install that you can just do
+```
+ollama pull qwen2.5:7b
+```
+It will take a few minutes to complete because the model is quite large.
 
-```bash
-python -m summarizer --source "https://youtube.com/watch?v=VIDEO_ID"
+After it's done, type the below command to verify the model's existence
+```
+ollama list
 ```
 
-The summary is saved to `summaries/watch_YYYYMMDD_HHMMSS.md`. That's it!
-
-### Streamlit GUI
-
-```bash
-python -m streamlit run app.py
+You should see something like:
+```
+NAME          ID              SIZE      MODIFIED
+qwen2.5:7b    845dbda0ea48    4.7 GB    3 days ago
 ```
 
-Visit port 8501.
-
-### Docker
-
-```bash
-git clone https://github.com/martinopiaggi/summarize.git
-cd summarize
-# Create [.env](./.env) with your API keys, then:
-docker compose up -d
+Now we want to start the model by (change to match your model)
+```
+ollama run qwen2.5:7b
 ```
 
-Open `http://localhost:8501` for the GUI. Summaries are saved to `./summaries/`.
+🔰 Almost forgot to mention this: the reason why I'm using qwen2.5:7b instead of qwen3 is because qwen3 is a thinking model and the code for thinking models is a little different. It's not a big change but I lack the motivation to do it, so be aware this stuff exists if you choose a thinking model (like Deepseek).
 
-CLI via Docker: `docker compose run --rm summarizer python -m summarizer --source "URL"`
+After you run the model, a chat will initiated and we want to close the chat (but the model is still running). To close it, hit `ctrl + d`.
 
-Cobalt standalone: `docker compose -f docker-compose.cobalt.yml up -d`
-
-## Configuration
-
-### Providers ([`summarizer.yaml`](./summarizer.yaml))
-
-Define your LLM providers and defaults. CLI flags override everything.
-
-```yaml
-default_provider: gemini
-
-providers:
-  gemini:
-    base_url: https://generativelanguage.googleapis.com/v1beta/openai
-    model: gemini-2.5-flash-lite
-    chunk-size: 128000
-
-  groq:
-    base_url: https://api.groq.com/openai/v1
-    model: openai/gpt-oss-20b
-
-  deepseek:
-    base_url: https://api.deepseek.com/v1
-    model: deepseek-chat
-
-  openrouter:
-    base_url: https://openrouter.ai/api/v1
-    model: google/gemini-2.0-flash-001
-
-defaults:
-  prompt-type: Questions and answers
-  chunk-size: 10000
-  parallel-calls: 30
-  max-tokens: 4096
-  output-dir: summaries
+Another important thing, run this to verify your model is indeed using GPU:
+```
+ollama ps
 ```
 
-### API Keys ([`.env`](./.env))
-
-```ini
-# Required for Cloud Whisper transcription (free tier available)
-groq = gsk_YOUR_KEY
-
-# LLM providers (choose one or more)
-openai = sk-proj-YOUR_KEY
-generativelanguage = YOUR_GOOGLE_KEY
-deepseek = YOUR_DEEPSEEK_KEY
-openrouter = YOUR_OPENROUTER_KEY
-perplexity = YOUR_PERPLEXITY_KEY
-hyperbolic = YOUR_HYPERBOLIC_KEY
-
-# Optional: Webshare proxy for YouTube transcript fetching
-# (helps avoid IP bans when running from cloud/VPS)
-WEBSHARE_PROXY_USERNAME = YOUR_WEBSHARE_USERNAME
-WEBSHARE_PROXY_PASSWORD = YOUR_WEBSHARE_PASSWORD
+You should expect something like:
+```
+NAME          ID              SIZE      PROCESSOR    CONTEXT    UNTIL
+qwen2.5:7b    845dbda0ea48    4.9 GB    100% GPU     4096       4 minutes from now
 ```
 
-If you pass endpoint url with `--base-url` flag in CLI, the api key selected from `.env` is auto-matched by URL keyword: for example, `https://generativelanguage.googleapis.com/...` matches `generativelanguage`.
+If it's not using GPU, sadly it means that this tutorial didn't help you with setting up GPU and your text generation speed will be much slower. 
 
-### Prompts ([`prompts.json`](./summarizer/prompts.json))
+Once you have done everything above, finally we can let AI summarize the stuff for us.
 
-Use with `--prompt-type` in CLI or select in drop menu on web interface. 
-Add custom styles by editing [`prompts.json`](./summarizer/prompts.json). Use `{text}` as the transcript placeholder.
+The basic workflow to run the script is mentioned in the [original repo](https://github.com/martinopiaggi/summarize). You just need to read the local LLM part. 
 
-## Extra
+Here I will provide a sample command for you:
 
-## Local Whisper
-
-Runs transcription on your machine instead of using Cloud Whisper (Groq API). No Groq API key needed, but slower without a GPU.
-
-```bash
-# Install with GPU support
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-
-# Use it
-python -m summarizer --source "URL" --force-download --transcription "Local Whisper" --whisper-model "small"
+```
+python3 -m summarizer \
+--base-url "http://127.0.0.1:11434/v1" \
+--model "qwen2.5:7b" \
+--api-key "ollama" \
+--source "text/page_183_207.txt" \
+--parallel-calls 1 \
+--chunk-size 200 \
+--max-tokens 2048 \
+--type "TXT" \
+--prompt-type "Technical Book Insights" \
+-v
 ```
 
-**Why not in Docker?** I decided to not include local whsiper in the Docker image because in VPS deployment, GPUs are typically unavailable. Local Whisper without GPU is too slow for production use. Use Cloud Whisper (Groq API, there is also free tier) in Docker, or install locally with GPU.
+The major addition here is "TXT", which isn't in the original repo. It's basically the same concept with reading text from audio, instead we directly give it the text now. The second addition I made is "Technical Book Insights", this is just a prompt for the AI but if you want to use this prompt you might want to increase `--max-tokens`. 
 
-Model sizes: `tiny` (fastest) / `base` / `small` / `medium` / `large` (most accurate). GPU should be auto-detected.
+It should still work for remote videos (such as Youtube, as advertized in the original repo) as well as local files.
 
-
-## CLI Examples
-
-With a configured [`summarizer.yaml`](./summarizer.yaml), the CLI is simple:
-
-```bash
-# Uses default provider from YAML
-python -m summarizer --source "https://youtube.com/watch?v=VIDEO_ID"
-
-# Specify a provider
-python -m summarizer --source "https://youtube.com/watch?v=VIDEO_ID" --provider groq
-
-# Fact-check claims with Perplexity (use Summarize skill for AI agents)
-python -m summarizer \
-  --source "https://youtube.com/watch?v=VIDEO_ID" \
-  --base-url "https://api.perplexity.ai" \
-  --model "sonar-pro" \
-  --prompt-type "Fact Checker"
-
-# Extract key insights
-python -m summarizer \
-  --source "https://youtube.com/watch?v=VIDEO_ID" \
-  --provider gemini \
-  --prompt-type "Distill Wisdom"
-
-# Generate a Mermaid diagram
-python -m summarizer \
-  --source "https://youtube.com/watch?v=VIDEO_ID" \
-  --provider openrouter \
-  --prompt-type "Mermaid Diagram"
-
-# Multiple videos
-python -m summarizer --source "URL1" "URL2" "URL3"
-
-# Local files
-python -m summarizer --type "Local File" --source "./lecture.mp4"
-
-# Non-YouTube (requires Cobalt running)
-python -m summarizer --type "Video URL" --source "https://www.instagram.com/reel/..."
-
-# Specify language for YouTube captions
-python -m summarizer --source "URL" --prompt-type "Distill Wisdom" --language "it"
+After you finish, remember to stop the model by doing (change to match your model)
+```
+ollama stop qwen2.5:7b
 ```
 
-Without YAML, pass `--base-url` and `--model` explicitly:
+Sadly, due to lack of time, I can't implement it to work for pdf. Although it shouldn't be hard, considering that we already have tools to either read the text like [pdf-to-text](https://github.com/spatie/pdf-to-text.git) or read through OCR with things like [tesseract](https://github.com/tesseract-ocr/tesseract.git). 
 
-```bash
-python -m summarizer \
-  --source "https://youtube.com/watch?v=VIDEO_ID" \
-  --base-url "https://generativelanguage.googleapis.com/v1beta/openai" \
-  --model "gemini-2.5-flash-lite"
-```
+Hope your problems got solved and that concludes this tutorial.
 
-#### CLI Reference
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--source` | Video URLs or file paths (multiple allowed) | Required |
-| `--provider` | Provider name from YAML | `default_provider` |
-| `--base-url` | API endpoint (overrides provider) | From YAML |
-| `--model` | Model identifier (overrides provider) | From YAML |
-| `--api-key` | API key (overrides [`.env`](./.env)) | - |
-| `--type` | `YouTube Video`, `Video URL`, `Local File`, `Google Drive`, `Dropbox` | `YouTube Video` |
-| `--prompt-type` | Summary style (see below) | `Questions and answers` |
-| `--chunk-size` | Input text chunk size (chars) | `10000` |
-| `--force-download` | Skip captions, download audio | `False` |
-| `--transcription` | `Cloud Whisper` (Groq API) or `Local Whisper` (local) | `Cloud Whisper` |
-| `--whisper-model` | `tiny`, `base`, `small`, `medium`, `large` | `tiny` |
-| `--language` | Language code for captions from yt (often useful if Youtube can't found correct captions) | `auto` |
-| `--parallel-calls` | Concurrent API requests | `30` |
-| `--max-tokens` | Max output tokens per chunk | `4096` |
-| `--output-dir` | Output directory | `summaries` |
-| `--no-save` | Print only, no file output | `False` |
-| `--verbose`, `-v` | Detailed output | `False` |
+# 📄 License
+The author of the original repo for some reason didn't provide a license, so I assume this tool is not permitted for commercial usage. Therefore just for your own personal use, OK?

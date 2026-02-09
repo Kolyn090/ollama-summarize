@@ -6,6 +6,7 @@ import logging
 from typing import Dict, List, Tuple, Any
 from .exceptions import APIError, ConfigurationError
 from .progress import ProgressBar, SimpleProgress, print_status
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,10 @@ def parse_response_content(response: Dict[str, Any], base_url: str) -> str:
     Returns:
         Cleaned content string
     """
-    content = response.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    choice = response.get("choices", [{}])[0]
+
+    # Ollama-compatible: first try 'content', then 'message.content'
+    content = choice.get("content") or choice.get("message", {}).get("content", "")
     
     # Handle Perplexity's chain-of-thought reasoning
     if "perplexity" in base_url.lower():
@@ -177,7 +181,7 @@ async def process_chunk(
                     url,
                     headers=headers,
                     json=data,
-                    timeout=aiohttp.ClientTimeout(total=60)
+                    timeout=aiohttp.ClientTimeout(total=300)  # Changed to 300 in case of a weak GPU
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
@@ -210,6 +214,7 @@ async def process_chunk(
         except Exception as e:
             if attempt < max_retries - 1:
                 logger.warning(f"Error processing chunk (attempt {attempt + 1}/{max_retries}): {str(e)}")
+                logger.warning(traceback.format_exc())
                 await asyncio.sleep(2 ** attempt)
             else:
                 logger.error(f"Error processing chunk after {max_retries} attempts: {str(e)}")
@@ -217,6 +222,77 @@ async def process_chunk(
     
     return ""
 
+async def process_chunks_local(chunks: list, template: str, config: dict) -> list:
+    """
+    Process a list of (timestamp, chunk_text) pairs using Ollama's chat API.
+    Returns a list of (timestamp, summary) pairs.
+    """
+    from ollama import chat # function, not class
+    verbose = config.get("verbose", False)
+    results = []
+    completed = 0
+
+    # Initialize progress display
+    if verbose:
+        print("Verbose mode ON")
+        progress = ProgressBar(len(chunks), "Processing chunks", 50)
+    else:
+        print("Verbose mode OFF")
+        progress = SimpleProgress(len(chunks), "Summarizing")
+        progress.start()
+
+    for timestamp, chunk_text in chunks:
+        if not chunk_text.strip():
+            # print(f"[{timestamp}] Skipping empty chunk")
+            continue
+
+        try:
+            # if verbose:
+            #     print(f"\n[{timestamp}] Processing chunk (length {len(chunk_text)}):")
+            output = []
+
+            # Stream the chat responses
+            for part in chat(
+                model=config.get("model", "qwen2.5:7b"),  # if no model, use qwen2.5:7b by default
+                messages=[{"role": "user", "content": f"{template}\n{chunk_text}"}],
+                stream=True,
+                options={
+                    "num_predict": 256,
+                    "temperature": 0.3,
+                    "top_p": 0.9,
+                    "repeat_penalty": 1.1
+                },
+            ):
+                # DEBUG: see all parts coming from the stream
+                # if verbose:
+                #     print("STREAM PART:", part)
+
+                msg = getattr(part, "message", None)
+                print(msg)
+                if msg and msg.content:
+                    text = msg.content
+                    print(text, end="", flush=True)
+                    output.append(text)
+
+            summary = "".join(output).strip()
+            if not summary:
+                summary = "[No content returned]"
+                # print(summary)
+
+            results.append((timestamp, summary))
+
+        except Exception as e:
+            # print(f"[{timestamp}] Chunk processing error:", repr(e))
+            # print(traceback.format_exc())
+            results.append((timestamp, f"[Error: {repr(e)}]"))
+
+        completed += 1
+        progress.update(completed)
+
+    if not verbose:
+        progress.finish(len(results) > 0)
+
+    return results
 
 async def process_chunks(
     chunks: List[Tuple[str, str]], 

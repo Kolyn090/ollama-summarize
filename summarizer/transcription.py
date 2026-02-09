@@ -188,9 +188,11 @@ def _transcribe_local_whisper(
     if verbose:
         if device == "cuda":
             gpu_name = torch.cuda.get_device_name(0)
-            print_status(f"Using GPU: {gpu_name}", "INFO", verbose)
+            # print_status(f"Using GPU: {gpu_name}", "INFO", verbose)
+            print(f"Using GPU: {gpu_name}")
         else:
-            print_status("No GPU detected, using CPU", "INFO", verbose)
+            # print_status("No GPU detected, using CPU", "INFO", verbose)
+            print("No GPU detected, using CPU")
 
     # Validate model size
     valid_models = ["tiny", "base", "small", "medium", "large"]
@@ -263,6 +265,11 @@ def get_transcript(config: dict) -> str:
         finally:
             if os.path.exists(audio_path):
                 os.remove(audio_path)
+
+    if source_type == "TXT":  # Supports plain text as source, not limited to video/audio
+        with open(source_path, 'r', encoding='utf-8') as f:
+            return "\n".join(f.readlines())
+
 
     if source_type in ("Local File", "Google Drive Video Link", "Dropbox Video Link"):
         handler = get_handler(source_type, source_path)
